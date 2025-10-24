@@ -1,0 +1,25 @@
+# Gradle
+.gradle/
+build/
+gradle-app.setting
+!gradle-wrapper.jar
+!gradle-wrapper.properties
+
+# IDE
+.vscode/
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Build artifacts
+target/
+META-INF/
+
+# Backup files
+*.old
+
+# OS
+.DS_Store
+Thumbs.db
+
