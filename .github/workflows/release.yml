@@ -1,0 +1,121 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v4
+
+    - name: Build JAR with Gradle
+      run: ./gradlew clean jar
+
+    - name: Get version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+    - name: Prepare release artifacts
+      run: |
+        VERSION=${{ steps.get_version.outputs.VERSION }}
+
+        # Create directories
+        mkdir -p release/linux release/windows release/source
+
+        # Copy JAR to both platforms
+        cp build/libs/brute-force.jar release/linux/
+        cp build/libs/brute-force.jar release/windows/
+
+        # Copy scripts
+        cp brute-force release/linux/
+        cp brute-force.bat release/windows/
+
+        # Make Linux script executable
+        chmod +x release/linux/brute-force
+
+        # Create Linux ZIP
+        cd release/linux
+        zip -r ../../flyway-checksum-bruteforce-${VERSION}-linux.zip .
+        cd ../..
+
+        # Create Windows ZIP
+        cd release/windows
+        zip -r ../../flyway-checksum-bruteforce-${VERSION}-windows.zip .
+        cd ../..
+
+        # Create source ZIP (exclude build artifacts and .git)
+        zip -r flyway-checksum-bruteforce-${VERSION}-source.zip . \
+          -x "*.git*" \
+          -x "*build/*" \
+          -x "*release/*" \
+          -x "*.gradle/*" \
+          -x "*gradlew*" \
+          -x "*.zip"
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          flyway-checksum-bruteforce-*.zip
+        body: |
+          ## FlyWay Checksum Brute-Force Tool v${{ steps.get_version.outputs.VERSION }}
+
+          ### 📦 Release Artifacts
+
+          - **Linux**: `flyway-checksum-bruteforce-${{ steps.get_version.outputs.VERSION }}-linux.zip`
+            - Contains: JAR + `brute-force` shell script
+            - Usage: `./brute-force <src-file> <dst-file>`
+
+          - **Windows**: `flyway-checksum-bruteforce-${{ steps.get_version.outputs.VERSION }}-windows.zip`
+            - Contains: JAR + `brute-force.bat` batch script
+            - Usage: `brute-force.bat <src-file> <dst-file>`
+
+          - **Source Code**: `flyway-checksum-bruteforce-${{ steps.get_version.outputs.VERSION }}-source.zip`
+            - Complete source code for building from scratch
+
+          ### 🚀 Quick Start
+
+          1. Download the appropriate ZIP for your platform
+          2. Extract the archive
+          3. Run the script with source and destination files:
+             ```bash
+             # Linux
+             ./brute-force migrations/V001__original.sql migrations/V001__modified.sql
+
+             # Windows
+             brute-force.bat migrations\V001__original.sql migrations\V001__modified.sql
+             ```
+
+          ### ℹ️ Requirements
+
+          - Java 11 or higher
+
+          ### 📖 Documentation
+
+          See [README.md](https://github.com/theSharque/flyway-checksum-bruteforce/blob/main/README.md) for detailed usage instructions and algorithm details.
+
+          ---
+
+          *Built with Java + Gradle*
+          *Developed entirely using Cursor AI*
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
